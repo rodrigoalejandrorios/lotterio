@@ -1,0 +1,51 @@
+version: 2.1
+orbs:
+  node: circleci/node@4.7
+
+jobs:
+  build:
+    #working_directory: ~/repo
+    docker:
+      - image: cimg/node:16.13.2
+    steps:
+      - checkout
+      - run:
+          name: Update NPM
+          command: "sudo npm install -g npm"
+      - run: 
+          name: Install CLI Vercel
+          command: npm install --global vercel
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install Dependencies
+          command: npm install
+      - save_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+          paths:
+            - ./node_modules
+      - run:
+          name: Build React App
+          command: npm run build
+      - save_cache:
+          key: app-build-cache-{{ .Branch }}
+          paths:
+            - ./build
+      - run:
+          name: Vercel Pull
+          command: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+      - run:
+          name: Vercel Build
+          command: vercel build --prod --token=$VERCEL_TOKEN
+      - run:
+          name: Vercel Prod Deploy
+          command: vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+workflows:
+  version: 2
+  build-deploy:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only:
+                - master
